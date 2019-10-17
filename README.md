@@ -1,9 +1,9 @@
-# Agent-Based Modeling and Social System Simulation 2019 (Template)
+# Agent-Based Modeling and Social System Simulation 2019
 (text between brackets to be removed)
 
-> * Group Name: (be creative!)
+> * Group Name: Monte-Carlo Masters
 > * Group participants names: (alphabetically sorted by last name)
-> * Project Title: (can be changed later)
+> * Project Title: Reinforcement Learning for Markets
 
 ## General Introduction
 
