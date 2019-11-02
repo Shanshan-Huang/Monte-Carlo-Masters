@@ -7,7 +7,8 @@ __maintainer__ = "Thomas Asikis"
 from gym import Env
 from abc import abstractmethod
 import pandas as pd
-
+HIS_LEN=4
+NUM_AGENT=10
 
 class MarketEnvironment(Env):
     def __init__(self, sellers: list, buyers: list, max_steps: int, matcher, setting):
@@ -34,6 +35,10 @@ class MarketEnvironment(Env):
         self.n_buyers = len(self.buyers)
         self.matched: set = None
         self.deal_history: list = None
+        #################################################################
+        # self.price_history = np.zero((NUM_AGENT,HIS_LEN))
+        #################################################################
+
         self.offers = None
         self.current_actions = dict()
         self.realized_deals = None
@@ -62,7 +67,14 @@ class MarketEnvironment(Env):
         new_state = dict((agent_id, self.setting.get_state(agent_id, self.deal_history, self.agents,
                                                            self.offers))
                          for agent_id in self.agents['id'])
+
+        ########################################################
+        # for i in range(NUM_AGENT):
+        #     new_state[str(i)]
+        # self.price_history = np.hstack((self.price_history[:, 1:], 
+        ########################################################
         self.time += 1
+        #print(self.done)
         return new_state, rewards, self.done, None
 
     def reset(self):
