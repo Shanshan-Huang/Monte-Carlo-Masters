@@ -96,6 +96,8 @@ class RandomMatcher(Matcher):
             if considered_buyer['offer'] >= considered_seller['offer']:
                 # if seller price is lower or equal to buyer price
                 # matching is performed
+                print("buyer",considered_buyer['offer'] )
+                print("seller",considered_seller['offer'] )
                 matched.add(considered_buyer['id'])
                 matched.add(considered_seller['id'])
 

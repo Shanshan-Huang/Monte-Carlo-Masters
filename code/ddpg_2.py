@@ -23,14 +23,14 @@ NUM_BUYER=1
 NUM_AGENT=2
 MAX_EPISODES = 10
 MAX_EP_STEPS = 1000
-LR_A = 0.001    # learning rate for actor
-LR_C = 0.001    # learning rate for critic
+LR_A = 0.0001    # learning rate for actor
+LR_C = 0.0001    # learning rate for critic
 GAMMA = 0.9     # reward discount
-action_bound = 100
+action_bound = 200
 REPLACEMENT = [
     dict(name='soft', tau=0.01),
     dict(name='hard', rep_iter_a=600, rep_iter_c=500)
-][0]            # you can try different target replacement strategies
+][1]            # you can try different target replacement strategies
 MEMORY_CAPACITY = 100
 BATCH_SIZE = 32
 
@@ -69,7 +69,7 @@ class Actor(object):
 
     def _build_net(self, s, scope, trainable):
         with tf.variable_scope(scope):
-            init_w = tf.random_normal_initializer(0., 0.1)
+            init_w = tf.random_normal_initializer(0.1, 0.1)
             init_b = tf.constant_initializer(0.1)
             net = tf.layers.dense(s, 30, activation=tf.nn.tanh,
                                   kernel_initializer=init_w, bias_initializer=init_b, name='l1',
@@ -169,7 +169,9 @@ class Critic(object):
         return q
 
     def learn(self, s, a, r, s_):
-        self.sess.run(self.train_op, feed_dict={S: s, self.a: a, R: r, S_: s_})
+        _,los,q_=self.sess.run([self.train_op,self.loss,self.gamma * self.q_], feed_dict={S: s, self.a: a, R: r, S_: s_})
+        #print("loss",los)
+        #print('q',q_)
         if self.replacement['name'] == 'soft':
             self.sess.run(self.soft_replacement)
         else:
@@ -219,7 +221,7 @@ sellers = []
     buyers.append(Buyer(str(i), 120))
 for i in range(NUM_BUYER+1, NUM_AGENT):
     sellers.append(Seller(str(i), 120))'''
-nick = Seller('1', 90)
+nick = Seller('1', 50)
 sellers=[nick]
 
 
@@ -272,7 +274,7 @@ M_1 = Memory(MEMORY_CAPACITY, dims=2 * state_dim + action_dim + 1)
 if OUTPUT_GRAPH:
     tf.summary.FileWriter("logs/", sess.graph)
 
-var = 3  # control exploration
+var = 50 # control exploration
 price_list_0=[]
 price_list_1=[]
 time_list=[]
@@ -314,18 +316,20 @@ for i in range(MAX_EPISODES):
         #print(a)
         #a=np.random.normal(a, var)
         #print(a)
-        a = np.clip(np.random.normal(a, var), 0, alex.reservation_price)    # add randomness to action selection for exploration
+        a = np.clip(np.random.normal(a,50*(1-j/MAX_EP_STEPS)), 0, alex.reservation_price)    # add randomness to action selection for exploration
         #print(a)
+        a=95
         step_offers = {}
         step_offers['0']=a
 
         n = actor_1.choose_action(s)
         #a=np.random.normal(a, var)
         #print(a)
-        print(n)
+        #print(n)
         nn = np.clip(np.random.normal(n, var), nick.reservation_price, action_bound)    # add randomness to action selection for exploration
-        print(nn)
-        step_offers['1']=n
+        #print(nn)
+        step_offers['1']=nn
+        print("nn", nn)
         price_list_0.append(a)
         price_list_1.append(nn)
         time_list.append(t)
@@ -363,7 +367,7 @@ for i in range(MAX_EPISODES):
         #####################################################################
 
         observation, rewards, done, _ = env.step(step_offers)
-        
+        print(step_offers)
         s_ = np.hstack((s.reshape((NUM_AGENT, -1))[:, 1:], curr_offer)).flatten()
         r_0 = rewards['0']
         r_1=rewards['1']
@@ -373,13 +377,14 @@ for i in range(MAX_EPISODES):
                 done_=False
         if done_:
             M_0.store_transition(s, a, r_0 , s_)
-            M_1.store_transition(s, n, r_1 , s_)
+            M_1.store_transition(s, nn, r_1 , s_)
         else:
-            M_0.store_transition(s, a, -1 , s_)
+            #print('Buyer:', a,'Seller:', nn, 'diff:', a-nn )
+            M_0.store_transition(s, a, 0.5 , s_)
             #print(int(min(n-nick.reservation_price,-1)))
-            M_1.store_transition(s, n, int(min(n-nick.reservation_price,-1)), s_)
-
-
+            #M_1.store_transition(s, n, 10*int(min(n-nick.reservation_price,-1)), s_)
+            #M_1.store_transition(s, n, s.reshape((NUM_AGENT, -1))[1][-1]-nick.reservation_price, s_)
+            M_1.store_transition(s, 0.5,0, s_)
         if M_0.pointer > MEMORY_CAPACITY:
             var *= .9995    # decay the action randomness
             b_M = M_0.sample(BATCH_SIZE)
@@ -398,7 +403,7 @@ for i in range(MAX_EPISODES):
             b_a = b_M[:, state_dim: state_dim + action_dim]
             b_r = b_M[:, -state_dim - 1: -state_dim]
             b_s_ = b_M[:, -state_dim:]
-
+            #print('reward',b_r)
             critic_1.learn(b_s, b_a, b_r, b_s_)
             actor_1.learn(b_s)
 
