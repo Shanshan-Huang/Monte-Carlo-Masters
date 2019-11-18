@@ -2,7 +2,7 @@ import sys
 sys.path.append('.')
 import pandas as pd
 import numpy as np
-
+import matplotlib.pyplot as plt
 import warnings
 from agents import Buyer, Seller
 from environments import MarketEnvironment
@@ -17,20 +17,21 @@ np.random.seed(1)
 tf.set_random_seed(1)
 
 #####################  hyper parameters  ####################
-HIS_LEN=4
-NUM_SELLER=10
-NUM_BUYER=9
-NUM_AGENT=NUM_SELLER+NUM_BUYER+1
+HIS_LEN=1
+NUM_SELLER=1
+NUM_BUYER=1
+NUM_AGENT=2
 MAX_EPISODES = 10
-MAX_EP_STEPS = 200
+MAX_EP_STEPS = 1000
 LR_A = 0.001    # learning rate for actor
 LR_C = 0.001    # learning rate for critic
 GAMMA = 0.9     # reward discount
+action_bound = 100
 REPLACEMENT = [
     dict(name='soft', tau=0.01),
     dict(name='hard', rep_iter_a=600, rep_iter_c=500)
 ][0]            # you can try different target replacement strategies
-MEMORY_CAPACITY = 10000
+MEMORY_CAPACITY = 100
 BATCH_SIZE = 32
 
 RENDER = False
@@ -41,14 +42,14 @@ ENV_NAME = 'Pendulum-v0'
 
 
 class Actor(object):
-    def __init__(self, sess, action_dim, action_bound, learning_rate, replacement):
+    def __init__(self, sess, action_dim, action_bound, learning_rate, replacement,name):
         self.sess = sess
         self.a_dim = action_dim
         self.action_bound = action_bound
         self.lr = learning_rate
         self.replacement = replacement
         self.t_replace_counter = 0
-
+        self.name_=name
         with tf.variable_scope('Actor'):
             # input s, output a
             self.a = self._build_net(S, scope='eval_net', trainable=True)
@@ -56,8 +57,8 @@ class Actor(object):
             # input s_, output a, get a_ for critic
             self.a_ = self._build_net(S_, scope='target_net', trainable=False)
 
-        self.e_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Actor/eval_net')
-        self.t_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Actor/target_net')
+        self.e_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name_+'/Actor/eval_net')
+        self.t_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name_+'/Actor/target_net')
 
         if self.replacement['name'] == 'hard':
             self.t_replace_counter = 0
@@ -68,13 +69,13 @@ class Actor(object):
 
     def _build_net(self, s, scope, trainable):
         with tf.variable_scope(scope):
-            init_w = tf.random_normal_initializer(0., 0.3)
+            init_w = tf.random_normal_initializer(0., 0.1)
             init_b = tf.constant_initializer(0.1)
-            net = tf.layers.dense(s, 30, activation=tf.nn.relu,
+            net = tf.layers.dense(s, 30, activation=tf.nn.tanh,
                                   kernel_initializer=init_w, bias_initializer=init_b, name='l1',
                                   trainable=trainable)
             with tf.variable_scope('a'):
-                actions = tf.layers.dense(net, self.a_dim, activation=tf.nn.tanh, kernel_initializer=init_w,
+                actions = tf.layers.dense(net, self.a_dim, activation=tf.nn.sigmoid, kernel_initializer=init_w,
                                           bias_initializer=init_b, name='a', trainable=trainable)
                 scaled_a = tf.multiply(actions, self.action_bound, name='scaled_a')  # Scale output to -action_bound to action_bound
         return scaled_a
@@ -100,7 +101,9 @@ class Actor(object):
             # a_grads = the gradients of the policy to get more Q
             # tf.gradients will calculate dys/dxs with a initial gradients for ys, so this is dq/da * da/dparams
             self.policy_grads = tf.gradients(ys=self.a, xs=self.e_params, grad_ys=a_grads)
-
+            #print(self.a)
+            
+            #print(a_grads)
         with tf.variable_scope('A_train'):
             opt = tf.train.AdamOptimizer(-self.lr)  # (- learning rate) for ascent policy
             self.train_op = opt.apply_gradients(zip(self.policy_grads, self.e_params))
@@ -109,14 +112,14 @@ class Actor(object):
 ###############################  Critic  ####################################
 
 class Critic(object):
-    def __init__(self, sess, state_dim, action_dim, learning_rate, gamma, replacement, a, a_):
+    def __init__(self, sess, state_dim, action_dim, learning_rate, gamma, replacement, a, a_,name):
         self.sess = sess
         self.s_dim = state_dim
         self.a_dim = action_dim
         self.lr = learning_rate
         self.gamma = gamma
         self.replacement = replacement
-
+        self.name_=name
         with tf.variable_scope('Critic'):
             # Input (s, a), output q
             self.a = tf.stop_gradient(a)    # stop critic update flows to actor
@@ -125,8 +128,8 @@ class Critic(object):
             # Input (s_, a_), output q_ for q_target
             self.q_ = self._build_net(S_, a_, 'target_net', trainable=False)    # target_q is based on a_ from Actor's target_net
 
-            self.e_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Critic/eval_net')
-            self.t_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Critic/target_net')
+            self.e_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name_+'/Critic/eval_net')
+            self.t_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name_+'/Critic/target_net')
 
         with tf.variable_scope('target_q'):
             self.target_q = R + self.gamma * self.q_
@@ -139,7 +142,9 @@ class Critic(object):
 
         with tf.variable_scope('a_grad'):
             self.a_grads = tf.gradients(self.q, a)[0]   # tensor of gradients of each sample (None, a_dim)
-
+            #print(self.q)
+            #print(a)
+            #print(self.a_grads)
         if self.replacement['name'] == 'hard':
             self.t_replace_counter = 0
             self.hard_replacement = [tf.assign(t, e) for t, e in zip(self.t_params, self.e_params)]
@@ -210,11 +215,12 @@ def format_deal_history(observation):
 alex = Buyer('0', 130)
 buyers = [alex]
 sellers = []
-for i in range(1, NUM_BUYER+1):
+'''for i in range(1, NUM_BUYER+1):
     buyers.append(Buyer(str(i), 120))
 for i in range(NUM_BUYER+1, NUM_AGENT):
-    sellers.append(Seller(str(i), 120))
-#nick = Seller('Seller Nick', 90)
+    sellers.append(Seller(str(i), 120))'''
+nick = Seller('1', 90)
+sellers=[nick]
 
 
 # Robustness: 4 market structures.
@@ -235,7 +241,7 @@ env = MarketEnvironment(sellers=sellers, buyers=buyers, max_steps=50,
 
 state_dim = HIS_LEN*(NUM_AGENT)
 action_dim = 1
-action_bound = 200
+
 
 # all placeholder for tf
 with tf.name_scope('S'):
@@ -247,36 +253,56 @@ with tf.name_scope('S_'):
 
 
 sess = tf.Session()
-
 # Create actor and critic.
 # They are actually connected to each other, details can be seen in tensorboard or in this picture:
-actor = Actor(sess, action_dim, action_bound, LR_A, REPLACEMENT)
-critic = Critic(sess, state_dim, action_dim, LR_C, GAMMA, REPLACEMENT, actor.a, actor.a_)
-actor.add_grad_to_graph(critic.a_grads)
-
+with tf.variable_scope('0'):
+    actor_0 = Actor(sess, action_dim, action_bound, LR_A, REPLACEMENT,name='0')
+    critic_0 = Critic(sess, state_dim, action_dim, LR_C, GAMMA, REPLACEMENT, actor_0.a, actor_0.a_,name='0')
+        #print(critic_0.a_grads)
+    actor_0.add_grad_to_graph(critic_0.a_grads)
+with tf.variable_scope('1'):
+    actor_1 = Actor(sess, action_dim, action_bound, LR_A, REPLACEMENT,name='1')
+    critic_1 = Critic(sess, state_dim, action_dim, LR_C, GAMMA, REPLACEMENT, actor_1.a, actor_1.a_,name='1')
+    actor_1.add_grad_to_graph(critic_1.a_grads)
+#print("jellp")
 sess.run(tf.global_variables_initializer())
 
-M = Memory(MEMORY_CAPACITY, dims=2 * state_dim + action_dim + 1)
-
+M_0 = Memory(MEMORY_CAPACITY, dims=2 * state_dim + action_dim + 1)
+M_1 = Memory(MEMORY_CAPACITY, dims=2 * state_dim + action_dim + 1)
 if OUTPUT_GRAPH:
     tf.summary.FileWriter("logs/", sess.graph)
 
 var = 3  # control exploration
-
+price_list_0=[]
+price_list_1=[]
+time_list=[]
+t=0
 t1 = time.time()
 for i in range(MAX_EPISODES):
     observation = env.reset()
     recent_history=[]
     #for agent in  observation.keys()[: NUM_SELLER]:
         #recent_history.append(observation[agent][-HIS_LEN:])
-    for m in range(NUM_AGENT * HIS_LEN):
-        recent_history.append(100*np.random.rand())
+    #for m in range(NUM_AGENT * HIS_LEN):
+        #recent_history.append(100*np.random.rand())
+    for m in range(HIS_LEN):
+        recent_history.append(m)
+        price_list_0.append(m)
+        time_list.append(t)
+        t=t+1
+    for m in range(HIS_LEN):
+        recent_history.append(200-m)
+        price_list_1.append(200-m)
+        #time_list.append(t)
+        #t=t+1
     s = np.array(recent_history)
+
 
     #for i in range(NUM_SELLER):
         #for j in range(HIS_LEN):
 
-    ep_reward = 0
+    ep_reward_0 = 0
+    ep_reward_1 = 0
 
     for j in range(MAX_EP_STEPS):
 
@@ -284,12 +310,26 @@ for i in range(MAX_EPISODES):
             #env.render()
 
         # Add exploration noise
-        a = actor.choose_action(s)
+        a = actor_0.choose_action(s)
         #print(a)
-        a = np.clip(np.random.normal(a, var), -2, 2)    # add randomness to action selection for exploration
+        #a=np.random.normal(a, var)
+        #print(a)
+        a = np.clip(np.random.normal(a, var), 0, alex.reservation_price)    # add randomness to action selection for exploration
+        #print(a)
         step_offers = {}
         step_offers['0']=a
 
+        n = actor_1.choose_action(s)
+        #a=np.random.normal(a, var)
+        #print(a)
+        print(n)
+        nn = np.clip(np.random.normal(n, var), nick.reservation_price, action_bound)    # add randomness to action selection for exploration
+        print(nn)
+        step_offers['1']=n
+        price_list_0.append(a)
+        price_list_1.append(nn)
+        time_list.append(t)
+        t=t+1
         #alex.reservation_price-np.random.rand()*alex.reservation_price
 
         #####################################################################
@@ -302,8 +342,12 @@ for i in range(MAX_EPISODES):
         #0 is agent 1-9 other buyer  10-19 seller
         
         curr_offer = np.zeros((NUM_AGENT,1))
-
         for buyer in buyers:
+            curr_offer[int(buyer.agent_id)] = step_offers[buyer.agent_id]
+        for seller in sellers:
+            curr_offer[int(seller.agent_id)] = step_offers[seller.agent_id]
+
+        '''for buyer in buyers:
             # print("buyer", buyer.agent_id)
             if (buyer.agent_id != '0'):
                 step_offers[buyer.agent_id]=buyer.reservation_price+np.random.rand()*buyer.reservation_price
@@ -314,43 +358,71 @@ for i in range(MAX_EPISODES):
             # print("seller", seller.agent_id)
             if (seller.agent_id != '0'):
                 step_offers[seller.agent_id]=seller.reservation_price+np.random.rand()*seller.reservation_price
-                curr_offer[int(seller.agent_id)] = step_offers[seller.agent_id]
+                curr_offer[int(seller.agent_id)] = step_offers[seller.agent_id]'''
             
         #####################################################################
 
         observation, rewards, done, _ = env.step(step_offers)
         
         s_ = np.hstack((s.reshape((NUM_AGENT, -1))[:, 1:], curr_offer)).flatten()
-        r = rewards['0']
-        M.store_transition(s, a, r , s_)
+        r_0 = rewards['0']
+        r_1=rewards['1']
+        done_=True
+        for boolen in done.values(): 
+            if not boolen:
+                done_=False
+        if done_:
+            M_0.store_transition(s, a, r_0 , s_)
+            M_1.store_transition(s, n, r_1 , s_)
+        else:
+            M_0.store_transition(s, a, -1 , s_)
+            #print(int(min(n-nick.reservation_price,-1)))
+            M_1.store_transition(s, n, int(min(n-nick.reservation_price,-1)), s_)
 
 
-        if M.pointer > MEMORY_CAPACITY:
+        if M_0.pointer > MEMORY_CAPACITY:
             var *= .9995    # decay the action randomness
-            b_M = M.sample(BATCH_SIZE)
+            b_M = M_0.sample(BATCH_SIZE)
             b_s = b_M[:, :state_dim]
             b_a = b_M[:, state_dim: state_dim + action_dim]
             b_r = b_M[:, -state_dim - 1: -state_dim]
             b_s_ = b_M[:, -state_dim:]
 
-            critic.learn(b_s, b_a, b_r, b_s_)
-            actor.learn(b_s)
+            critic_0.learn(b_s, b_a, b_r, b_s_)
+            actor_0.learn(b_s)
+        
+        if M_1.pointer > MEMORY_CAPACITY:
+            var *= .9995    # decay the action randomness
+            b_M = M_1.sample(BATCH_SIZE)
+            b_s = b_M[:, :state_dim]
+            b_a = b_M[:, state_dim: state_dim + action_dim]
+            b_r = b_M[:, -state_dim - 1: -state_dim]
+            b_s_ = b_M[:, -state_dim:]
+
+            critic_1.learn(b_s, b_a, b_r, b_s_)
+            actor_1.learn(b_s)
 
         s = s_
-        ep_reward += r
+        ep_reward_0 += r_0
+        ep_reward_1 += r_1
         
-        done_=True
-        for boolen in done.values(): 
-            if not boolen:
-                done_=False
+        
       
         if done_:
-            print('Episode:', i, ' Reward: %i' % int(ep_reward), 'Explore: %.2f' % var,)
+            print('Episode:', i, ' Reward_0: %i' % int(ep_reward_0),' Reward_1: %i' % int(ep_reward_1), 'Explore: %.2f' % var,)
+            #print(j)
             break
         if j == MAX_EP_STEPS-1:
-            print('Episode:', i, ' Reward: %i' % int(ep_reward), 'Explore: %.2f' % var, )
-            if ep_reward > -300:
+            print('Episode:', i, ' Reward_0: %i' % int(ep_reward_0),' Reward_1: %i' % int(ep_reward_1), 'Explore: %.2f' % var,)
+            if ep_reward_0 > -300:
                 RENDER = True
             break
 
 print('Running time: ', time.time()-t1)
+plt.axis([0, 500, 0, 200])
+#plt.plot(x, y, color="r", linestyle="-", linewidth=0.5)
+plt.scatter(time_list, price_list_0,color="r",label="buyer", s=1)
+plt.scatter(time_list, price_list_1,color="b",label="seller", s=1)
+print(price_list_1)
+plt.legend(loc='upper left', bbox_to_anchor=(0.2, 0.95))
+plt.savefig("test.png", dpi=500)
