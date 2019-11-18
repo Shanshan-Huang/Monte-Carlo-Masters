@@ -8,7 +8,7 @@ from agents import Buyer, Seller
 from environments import MarketEnvironment
 import tensorflow as tf
 from info_settings import BlackBoxSetting,FullInformationSetting
-from matchers import RandomMatcher
+from matchers import MyRandomMatcher
 import gym
 import time
 
@@ -17,21 +17,21 @@ np.random.seed(1)
 tf.set_random_seed(1)
 
 #####################  hyper parameters  ####################
-HIS_LEN=1
+HIS_LEN=5
 NUM_SELLER=1
 NUM_BUYER=1
 NUM_AGENT=2
 MAX_EPISODES = 10
-MAX_EP_STEPS = 1000
+MAX_EP_STEPS = 100
 LR_A = 0.0001    # learning rate for actor
 LR_C = 0.0001    # learning rate for critic
 GAMMA = 0.9     # reward discount
-action_bound = 200
+action_bound = 100
 REPLACEMENT = [
     dict(name='soft', tau=0.01),
     dict(name='hard', rep_iter_a=600, rep_iter_c=500)
-][1]            # you can try different target replacement strategies
-MEMORY_CAPACITY = 100
+][0]            # you can try different target replacement strategies
+MEMORY_CAPACITY = 200
 BATCH_SIZE = 32
 
 RENDER = False
@@ -102,7 +102,7 @@ class Actor(object):
             # tf.gradients will calculate dys/dxs with a initial gradients for ys, so this is dq/da * da/dparams
             self.policy_grads = tf.gradients(ys=self.a, xs=self.e_params, grad_ys=a_grads)
             #print(self.a)
-            
+
             #print(a_grads)
         with tf.variable_scope('A_train'):
             opt = tf.train.AdamOptimizer(-self.lr)  # (- learning rate) for ascent policy
@@ -191,7 +191,7 @@ class Memory(object):
     def store_transition(self, s, a, r, s_):
         transition = np.hstack((s, a, [r], s_))
         index = self.pointer % self.capacity  # replace the old memory with new memory
-        
+
         self.data[index, :] = transition
         self.pointer += 1
 
@@ -204,9 +204,9 @@ def format_deal_history(observation):
     '''
     Takes in observation from the agent enviroment and returns a NUM_SELLER * HIS_LEN length numpy array.
     observation example
-    {'Seller John': array([115. , 105.   , 120.   ,  95.  , 105.36013271,   0.        ]), 
-    'Seller Nick':  array([115.  , 105.   , 120.   ,  95.  , 105.36013271,   0.        ]), 
-    'Buyer Alex':  array([115.   , 105.   , 120.   ,  95.  , 105.36013271,   0.        ]), 
+    {'Seller John': array([115. , 105.   , 120.   ,  95.  , 105.36013271,   0.        ]),
+    'Seller Nick':  array([115.  , 105.   , 120.   ,  95.  , 105.36013271,   0.        ]),
+    'Buyer Alex':  array([115.   , 105.   , 120.   ,  95.  , 105.36013271,   0.        ]),
     'Buyer Kevin': array([115.  , 105.   , 120.   ,  95.  , 105.36013271,   0.        ])}
     '''
     recent_history = []
@@ -230,18 +230,18 @@ sellers=[nick]
 # 10 rounds, 10 buyers and 10 sellers.
 # 3 Variations: (i) Asymmetric buy-side. (ii) Asymmetric sell-side. (iii) Long.
 # (i) 10 rounds, 20 buyers and 10 sellers.
-# (ii) 10 rounds, 10 buyers and 20 sellers. 
+# (ii) 10 rounds, 10 buyers and 20 sellers.
 # (iii) 50 rounds, 10 buyers and 10 sellers.
 
 # the dratf.pdf have maximum 50 rounds in each episode
 warnings.simplefilter("ignore")
-env = MarketEnvironment(sellers=sellers, buyers=buyers, max_steps=50,  
-                               matcher=RandomMatcher(), setting=FullInformationSetting)
+env = MarketEnvironment(sellers=sellers, buyers=buyers, max_steps=50,
+                               matcher=MyRandomMatcher(), setting=FullInformationSetting)
 #gym.make(ENV_NAME)
 #env = env.unwrapped
 #env.seed(1)
 
-state_dim = HIS_LEN*(NUM_AGENT)
+state_dim = HIS_LEN*(NUM_AGENT) + 1 # extra one for his own valuation price
 action_dim = 1
 
 
@@ -297,8 +297,10 @@ for i in range(MAX_EPISODES):
         price_list_1.append(200-m)
         #time_list.append(t)
         #t=t+1
-    s = np.array(recent_history)
 
+    #### TO-DO: might change alex nick
+    buyer_s0 = np.array(recent_history + [alex.reservation_price])
+    seller_s1 = np.array(recent_history + [nick.reservation_price])
 
     #for i in range(NUM_SELLER):
         #for j in range(HIS_LEN):
@@ -312,23 +314,23 @@ for i in range(MAX_EPISODES):
             #env.render()
 
         # Add exploration noise
-        a = actor_0.choose_action(s)
+        a = actor_0.choose_action(buyer_s0)
         #print(a)
         #a=np.random.normal(a, var)
         #print(a)
-        a = np.clip(np.random.normal(a,50*(1-j/MAX_EP_STEPS)), 0, alex.reservation_price)    # add randomness to action selection for exploration
+        a = np.clip(np.random.normal(a,50*(1-(j+1)*(i+1)/(MAX_EPISODES *MAX_EP_STEPS))), 0, alex.reservation_price)    # add randomness to action selection for exploration
         #print(a)
-        a=95
+        a=110
         step_offers = {}
         step_offers['0']=a
 
-        n = actor_1.choose_action(s)
+        n = actor_1.choose_action(seller_s1)
         #a=np.random.normal(a, var)
         #print(a)
         #print(n)
-        nn = np.clip(np.random.normal(n, var), nick.reservation_price, action_bound)    # add randomness to action selection for exploration
+        nn = np.clip(np.random.normal(n, var), nick.reservation_price, 200)    # add randomness to action selection for exploration
         #print(nn)
-        step_offers['1']=nn
+        step_offers['1']=int(nn)
         print("nn", nn)
         price_list_0.append(a)
         price_list_1.append(nn)
@@ -337,14 +339,14 @@ for i in range(MAX_EPISODES):
         #alex.reservation_price-np.random.rand()*alex.reservation_price
 
         #####################################################################
-        # load data. once the agent succeeded in the previous time step, 
+        # load data. once the agent succeeded in the previous time step,
         # since the sellers and buyers might quit the markets at anytime, so the state space is actually varying in length
         # to keep the state space a fixed length variable, we decide to
-        # increase the offer price to large price 10000 for Sellers and decrease the offer prcie to 0 for Buyers 
+        # increase the offer price to large price 10000 for Sellers and decrease the offer prcie to 0 for Buyers
         # once they are matched
-        # 
+        #
         #0 is agent 1-9 other buyer  10-19 seller
-        
+
         curr_offer = np.zeros((NUM_AGENT,1))
         for buyer in buyers:
             curr_offer[int(buyer.agent_id)] = step_offers[buyer.agent_id]
@@ -363,28 +365,33 @@ for i in range(MAX_EPISODES):
             if (seller.agent_id != '0'):
                 step_offers[seller.agent_id]=seller.reservation_price+np.random.rand()*seller.reservation_price
                 curr_offer[int(seller.agent_id)] = step_offers[seller.agent_id]'''
-            
+
         #####################################################################
 
         observation, rewards, done, _ = env.step(step_offers)
         print(step_offers)
-        s_ = np.hstack((s.reshape((NUM_AGENT, -1))[:, 1:], curr_offer)).flatten()
+        print("=============rewards", rewards)
+        s_ = np.hstack((buyer_s0[:-1].reshape((NUM_AGENT, -1))[:, 1:], curr_offer)).flatten()
+
+        buyer_s0_ = np.hstack((s_, alex.reservation_price))
+        seller_s1_= np.hstack((s_, nick.reservation_price))
+
         r_0 = rewards['0']
         r_1=rewards['1']
         done_=True
-        for boolen in done.values(): 
+        for boolen in done.values():
             if not boolen:
                 done_=False
         if done_:
-            M_0.store_transition(s, a, r_0 , s_)
-            M_1.store_transition(s, nn, r_1 , s_)
+            M_0.store_transition(buyer_s0, a, r_0 , buyer_s0_)
+            M_1.store_transition(seller_s1, nn, r_1 , seller_s1_)
         else:
             #print('Buyer:', a,'Seller:', nn, 'diff:', a-nn )
-            M_0.store_transition(s, a, 0.5 , s_)
+            M_0.store_transition(buyer_s0, a,  int(a -nn), buyer_s0_)
             #print(int(min(n-nick.reservation_price,-1)))
             #M_1.store_transition(s, n, 10*int(min(n-nick.reservation_price,-1)), s_)
             #M_1.store_transition(s, n, s.reshape((NUM_AGENT, -1))[1][-1]-nick.reservation_price, s_)
-            M_1.store_transition(s, 0.5,0, s_)
+            M_1.store_transition(seller_s1, nn, int(nn-a), seller_s1_)
         if M_0.pointer > MEMORY_CAPACITY:
             var *= .9995    # decay the action randomness
             b_M = M_0.sample(BATCH_SIZE)
@@ -395,7 +402,7 @@ for i in range(MAX_EPISODES):
 
             critic_0.learn(b_s, b_a, b_r, b_s_)
             actor_0.learn(b_s)
-        
+
         if M_1.pointer > MEMORY_CAPACITY:
             var *= .9995    # decay the action randomness
             b_M = M_1.sample(BATCH_SIZE)
@@ -407,22 +414,24 @@ for i in range(MAX_EPISODES):
             critic_1.learn(b_s, b_a, b_r, b_s_)
             actor_1.learn(b_s)
 
-        s = s_
+        buyer_s0 = buyer_s0_
+        seller_s1 = seller_s1_
+
         ep_reward_0 += r_0
         ep_reward_1 += r_1
-        
-        
-      
-        if done_:
-            print('Episode:', i, ' Reward_0: %i' % int(ep_reward_0),' Reward_1: %i' % int(ep_reward_1), 'Explore: %.2f' % var,)
-            #print(j)
-            break
-        if j == MAX_EP_STEPS-1:
-            print('Episode:', i, ' Reward_0: %i' % int(ep_reward_0),' Reward_1: %i' % int(ep_reward_1), 'Explore: %.2f' % var,)
-            if ep_reward_0 > -300:
-                RENDER = True
-            break
 
+        print('Episode:', i, ' Reward_0: %i' % int(ep_reward_0), ' Reward_1: %i' % int(ep_reward_1), 'Explore: %.2f' % var,)
+
+        # if done_:
+        #     print('Episode:', i, ' Reward_0: %i' % int(ep_reward_0),' Reward_1: %i' % int(ep_reward_1), 'Explore: %.2f' % var,)
+        #     #print(j)
+        #     # break
+        # if j == MAX_EP_STEPS-1:
+        #     print('Episode:', i, ' Reward_0: %i' % int(ep_reward_0),' Reward_1: %i' % int(ep_reward_1), 'Explore: %.2f' % var,)
+        #     if ep_reward_0 > -300:
+        #         RENDER = True
+        #     # break
+        #
 print('Running time: ', time.time()-t1)
 plt.axis([0, 500, 0, 200])
 #plt.plot(x, y, color="r", linestyle="-", linewidth=0.5)
