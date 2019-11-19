@@ -41,6 +41,86 @@ class Matcher:
         rewards: dict = None
         return rewards
 
+class MyRandomMatcher(Matcher):
+    def __init__(self):
+        """
+        A random matcher, which decides the deal price of a matched pair by sampling a uniform
+        distribution bounded in [seller_ask, buyer_bid] range.
+        The reward is calculated as the difference from cost or the difference to budget for
+        sellers and buyers.
+        """
+        super().__init__()
+
+    def match(self,
+              current_actions: dict,
+              offers: pd.DataFrame,
+              env_time: int,
+              agents: pd.DataFrame,
+              matched: set,
+              done: dict,
+              deal_history: pd.DataFrame):
+        """
+        The matching method, which relies on several data structures passed from the market object.
+        :param current_actions: A dictionary of agent id and offer value
+        :param offers: The dataframe containing the past offers from agents
+        :param env_time: the current time step in the market
+        :param agents: the dataframe containing the agent information
+        :param matched: the set containing all the ids of matched agents in this round
+        :param done: the dictionary with agent id as key and a boolean value to determine if an
+        agent has terminated the episode
+        :param deal_history: the dictionary containing all the successful deals till now
+        :return: the dictionary containing the the agent id as keys and the rewards as values
+        """
+        matched = set()
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+        # update offers
+        for agent_id, offer in current_actions.items():
+            if agent_id not in matched:
+                offers.loc[offers['id'] == agent_id, ['offer', 'time']] = (offer, env_time)
+        # keep buyer and seller offers with non-matched ids sorted:
+        # descending by offer value for buyers
+        # ascending by offer value for sellers
+        # and do a second sorting on ascending time to break ties for both
+        buyer_offers = offers[(offers['role'] == 'Buyer') &
+                              (~offers['id'].isin(matched))] \
+            .sort_values(['offer', 'time'], ascending=[False, True])
+
+        seller_offers = offers[(offers['role'] == 'Seller') &
+                               (~offers['id'].isin(matched))] \
+            .sort_values(['offer', 'time'], ascending=[True, True])
+
+        min_len = min(seller_offers.shape[0], buyer_offers.shape[0])
+        rewards = dict((aid, 0) for aid in agents['id'].tolist())
+        for i in range(min_len):
+            considered_seller = seller_offers.iloc[i, :]
+            considered_buyer = buyer_offers.iloc[i, :]
+
+            print("buyer", considered_buyer['offer'])
+            print("seller", considered_seller['offer'])
+
+            if considered_buyer['offer'] >= considered_seller['offer']:
+                # if seller price is lower or equal to buyer price
+                # matching is performed
+
+                matched.add(considered_buyer['id'])
+                matched.add(considered_seller['id'])
+
+                # keeping both done and matched is redundant
+                done[considered_buyer['id']] = True
+                done[considered_seller['id']] = True
+
+                deal_price = random.uniform(considered_seller['offer'], considered_buyer[
+                    'offer'])
+                rewards[considered_buyer['id']] = considered_buyer['offer'] - deal_price
+                rewards[considered_seller['id']] = deal_price - considered_seller['offer']
+                matching = dict(Seller=considered_seller['id'], Buyer=considered_buyer['id'],
+                                time=env_time, deal_price=deal_price)
+                deal_history.append(matching)
+            else:
+                # not possible that new matches can occur after this failure due to sorting.
+                break
+
+        return rewards
 
 class RandomMatcher(Matcher):
     def __init__(self):
@@ -93,11 +173,14 @@ class RandomMatcher(Matcher):
         for i in range(min_len):
             considered_seller = seller_offers.iloc[i, :]
             considered_buyer = buyer_offers.iloc[i, :]
+
+            print("buyer", considered_buyer['offer'])
+            print("seller", considered_seller['offer'])
+
             if considered_buyer['offer'] >= considered_seller['offer']:
                 # if seller price is lower or equal to buyer price
                 # matching is performed
-                print("buyer",considered_buyer['offer'] )
-                print("seller",considered_seller['offer'] )
+
                 matched.add(considered_buyer['id'])
                 matched.add(considered_seller['id'])
 
