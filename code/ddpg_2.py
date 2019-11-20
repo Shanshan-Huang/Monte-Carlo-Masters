@@ -17,22 +17,23 @@ np.random.seed(1)
 tf.set_random_seed(1)
 
 #####################  hyper parameters  ####################
-HIS_LEN=5
+HIS_LEN=1
 NUM_SELLER=1
 NUM_BUYER=1
 NUM_AGENT=2
 MAX_EPISODES = 10
-MAX_EP_STEPS = 100
-LR_A = 0.0001    # learning rate for actor
-LR_C = 0.0001    # learning rate for critic
+MAX_EP_STEPS = 500
+LR_A = 0.0005   # learning rate for actor
+LR_C = 0.0005     # learning rate for critic
 GAMMA = 0.9     # reward discount
-action_bound = 100
+action_bound = 1
+SCALE=100
 REPLACEMENT = [
     dict(name='soft', tau=0.01),
     dict(name='hard', rep_iter_a=600, rep_iter_c=500)
 ][0]            # you can try different target replacement strategies
-MEMORY_CAPACITY = 200
-BATCH_SIZE = 32
+MEMORY_CAPACITY = 100
+BATCH_SIZE = 1
 
 RENDER = False
 OUTPUT_GRAPH = True
@@ -69,14 +70,15 @@ class Actor(object):
 
     def _build_net(self, s, scope, trainable):
         with tf.variable_scope(scope):
-            init_w = tf.random_normal_initializer(0.1, 0.1)
-            init_b = tf.constant_initializer(0.1)
-            net = tf.layers.dense(s, 30, activation=tf.nn.tanh,
+            init_w = tf.random_normal_initializer(0.0001, 0.05)
+            init_b = tf.constant_initializer(1)
+            net = tf.layers.dense(s, 100, activation=tf.nn.tanh,
                                   kernel_initializer=init_w, bias_initializer=init_b, name='l1',
                                   trainable=trainable)
             with tf.variable_scope('a'):
-                actions = tf.layers.dense(net, self.a_dim, activation=tf.nn.sigmoid, kernel_initializer=init_w,
+                actions = tf.layers.dense(net, self.a_dim, activation=tf.nn.relu, kernel_initializer=init_w,
                                           bias_initializer=init_b, name='a', trainable=trainable)
+                actions=actions/SCALE
                 scaled_a = tf.multiply(actions, self.action_bound, name='scaled_a')  # Scale output to -action_bound to action_bound
         return scaled_a
 
@@ -106,8 +108,13 @@ class Actor(object):
             #print(a_grads)
         with tf.variable_scope('A_train'):
             opt = tf.train.AdamOptimizer(-self.lr)  # (- learning rate) for ascent policy
-            self.train_op = opt.apply_gradients(zip(self.policy_grads, self.e_params))
+            
+            # self.train_op = opt.apply_gradients(zip(self.policy_grads, self.e_params))
 
+            # gvs = zip(self.policy_grads, self.e_params)
+            # capped_gvs = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gvs]
+            gradients, _ = tf.clip_by_global_norm(self.policy_grads, 1.0)
+            self.train_op = opt.apply_gradients(zip(gradients, self.e_params))
 
 ###############################  Critic  ####################################
 
@@ -138,7 +145,12 @@ class Critic(object):
             self.loss = tf.reduce_mean(tf.squared_difference(self.target_q, self.q))
 
         with tf.variable_scope('C_train'):
-            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
+            # self.train_op = tf.train.RMSPropOptimizer(self.lr).minimize(self.loss)
+            optimizer = tf.train.AdamOptimizer(self.lr)
+            self.gradients, variables = zip(*optimizer.compute_gradients(self.loss))
+            # capped_gvs = [(tf.clip_by_value(grad, -10000., 100000.), var) for grad, var in gvs]
+            gradients, _ = tf.clip_by_global_norm(self.gradients, 1.0)
+            self.train_op = optimizer.apply_gradients(zip(gradients, variables))
 
         with tf.variable_scope('a_grad'):
             self.a_grads = tf.gradients(self.q, a)[0]   # tensor of gradients of each sample (None, a_dim)
@@ -154,8 +166,8 @@ class Critic(object):
 
     def _build_net(self, s, a, scope, trainable):
         with tf.variable_scope(scope):
-            init_w = tf.random_normal_initializer(0., 0.1)
-            init_b = tf.constant_initializer(0.1)
+            init_w = tf.random_normal_initializer(0., 0.5)
+            init_b = tf.constant_initializer(1)
 
             with tf.variable_scope('l1'):
                 n_l1 = 30
@@ -169,9 +181,9 @@ class Critic(object):
         return q
 
     def learn(self, s, a, r, s_):
-        _,los,q_=self.sess.run([self.train_op,self.loss,self.gamma * self.q_], feed_dict={S: s, self.a: a, R: r, S_: s_})
+        _,los,q_, gradienttt=self.sess.run([self.train_op,self.loss,self.gamma * self.q_, self.gradients], feed_dict={S: s, self.a: a, R: r, S_: s_})
         #print("loss",los)
-        #print('q',q_)
+        print('TTTTTT gradient',gradienttt)
         if self.replacement['name'] == 'soft':
             self.sess.run(self.soft_replacement)
         else:
@@ -194,7 +206,9 @@ class Memory(object):
 
         self.data[index, :] = transition
         self.pointer += 1
-
+    def print_transition(self):
+        for i in range(self.capacity):
+            print(self.data[i,:])
     def sample(self, n):
         assert self.pointer >= self.capacity, 'Memory has not been fulfilled'
         indices = np.random.choice(self.capacity, size=n)
@@ -214,14 +228,14 @@ def format_deal_history(observation):
         recent_history.append(observation[agent][-HIS_LEN:])
     return np.array(recent_history)
 
-alex = Buyer('0', 130)
+alex = Buyer('0', 90/SCALE)
 buyers = [alex]
 sellers = []
 '''for i in range(1, NUM_BUYER+1):
     buyers.append(Buyer(str(i), 120))
 for i in range(NUM_BUYER+1, NUM_AGENT):
     sellers.append(Seller(str(i), 120))'''
-nick = Seller('1', 50)
+nick = Seller('1', 30/SCALE)
 sellers=[nick]
 
 
@@ -262,21 +276,22 @@ with tf.variable_scope('0'):
     critic_0 = Critic(sess, state_dim, action_dim, LR_C, GAMMA, REPLACEMENT, actor_0.a, actor_0.a_,name='0')
         #print(critic_0.a_grads)
     actor_0.add_grad_to_graph(critic_0.a_grads)
-with tf.variable_scope('1'):
+'''with tf.variable_scope('1'):
     actor_1 = Actor(sess, action_dim, action_bound, LR_A, REPLACEMENT,name='1')
     critic_1 = Critic(sess, state_dim, action_dim, LR_C, GAMMA, REPLACEMENT, actor_1.a, actor_1.a_,name='1')
-    actor_1.add_grad_to_graph(critic_1.a_grads)
+    actor_1.add_grad_to_graph(critic_1.a_grads)'''
 #print("jellp")
 sess.run(tf.global_variables_initializer())
 
 M_0 = Memory(MEMORY_CAPACITY, dims=2 * state_dim + action_dim + 1)
-M_1 = Memory(MEMORY_CAPACITY, dims=2 * state_dim + action_dim + 1)
+#M_1 = Memory(MEMORY_CAPACITY, dims=2 * state_dim + action_dim + 1)
 if OUTPUT_GRAPH:
     tf.summary.FileWriter("logs/", sess.graph)
 
-var = 50 # control exploration
+var = 50/SCALE # control exploration
 price_list_0=[]
 price_list_1=[]
+price_list_2=[]
 time_list=[]
 t=0
 t1 = time.time()
@@ -288,13 +303,15 @@ for i in range(MAX_EPISODES):
     #for m in range(NUM_AGENT * HIS_LEN):
         #recent_history.append(100*np.random.rand())
     for m in range(HIS_LEN):
-        recent_history.append(m)
-        price_list_0.append(m)
-        time_list.append(t)
+        recent_history.append(40/SCALE)
+        price_list_0.append(40/SCALE)
+        price_list_2.append(40/SCALE)
+        time_list.append(40/SCALE)
         t=t+1
     for m in range(HIS_LEN):
-        recent_history.append(200-m)
-        price_list_1.append(200-m)
+        recent_history.append((100-m/2)/SCALE)
+        price_list_1.append((100-m/2)/SCALE)
+        
         #time_list.append(t)
         #t=t+1
 
@@ -315,25 +332,30 @@ for i in range(MAX_EPISODES):
 
         # Add exploration noise
         a = actor_0.choose_action(buyer_s0)
-        #print(a)
+        print("a",a)
+        price_list_2.append(a)
         #a=np.random.normal(a, var)
         #print(a)
-        a = np.clip(np.random.normal(a,50*(1-(j+1)*(i+1)/(MAX_EPISODES *MAX_EP_STEPS))), 0, alex.reservation_price)    # add randomness to action selection for exploration
-        #print(a)
-        a=110
+        a = np.clip(np.random.normal(a,var), 0, 1)    # add randomness to action selection for exploration
+        print("aa",a)
         step_offers = {}
-        step_offers['0']=a
+        step_offers['0']=float(a)
 
-        n = actor_1.choose_action(seller_s1)
+        #n = actor_1.choose_action(seller_s1)
         #a=np.random.normal(a, var)
         #print(a)
         #print(n)
-        nn = np.clip(np.random.normal(n, var), nick.reservation_price, 200)    # add randomness to action selection for exploration
+        #nn = np.clip(np.random.normal(n, var), nick.reservation_price/SCALE, 1)    # add randomness to action selection for exploration
         #print(nn)
-        step_offers['1']=int(nn)
-        print("nn", nn)
+        n=0.45
+        nn=n
+        step_offers['1']=float(nn)
+        #print("n",n)
+        #print("nn", nn)
         price_list_0.append(a)
-        price_list_1.append(nn)
+        price_list_1.append(n)
+       
+
         time_list.append(t)
         t=t+1
         #alex.reservation_price-np.random.rand()*alex.reservation_price
@@ -372,39 +394,54 @@ for i in range(MAX_EPISODES):
         print(step_offers)
         print("=============rewards", rewards)
         s_ = np.hstack((buyer_s0[:-1].reshape((NUM_AGENT, -1))[:, 1:], curr_offer)).flatten()
-
+        #print("----s",s_)
         buyer_s0_ = np.hstack((s_, alex.reservation_price))
         seller_s1_= np.hstack((s_, nick.reservation_price))
 
         r_0 = rewards['0']
         r_1=rewards['1']
+        print(done)
         done_=True
         for boolen in done.values():
             if not boolen:
                 done_=False
         if done_:
-            M_0.store_transition(buyer_s0, a, r_0 , buyer_s0_)
-            M_1.store_transition(seller_s1, nn, r_1 , seller_s1_)
+            #print("al",alex.reservation_price)
+            #print("a",a)
+            print("float~~done",10*float(alex.reservation_price-a))
+            #print(10*float(alex.reservation_price-a))
+            M_0.store_transition(buyer_s0, a, 10*float(alex.reservation_price-a) , buyer_s0_)
+            #M_1.store_transition(seller_s1, nn, r_1 , seller_s1_)
         else:
             #print('Buyer:', a,'Seller:', nn, 'diff:', a-nn )
-            M_0.store_transition(buyer_s0, a,  int(a -nn), buyer_s0_)
+            print("float~~fail", float(a-nn))
+            M_0.store_transition(buyer_s0, a,  float(a-nn), buyer_s0_)
             #print(int(min(n-nick.reservation_price,-1)))
             #M_1.store_transition(s, n, 10*int(min(n-nick.reservation_price,-1)), s_)
             #M_1.store_transition(s, n, s.reshape((NUM_AGENT, -1))[1][-1]-nick.reservation_price, s_)
-            M_1.store_transition(seller_s1, nn, int(nn-a), seller_s1_)
+            #M_1.store_transition(seller_s1, nn, -float(nn-a), seller_s1_)
         if M_0.pointer > MEMORY_CAPACITY:
-            var *= .9995    # decay the action randomness
+            var *= .99   # decay the action randomness
             b_M = M_0.sample(BATCH_SIZE)
             b_s = b_M[:, :state_dim]
             b_a = b_M[:, state_dim: state_dim + action_dim]
             b_r = b_M[:, -state_dim - 1: -state_dim]
             b_s_ = b_M[:, -state_dim:]
+            print("state_old", b_s)
+            print("state_new",b_s_)
+            if done_:
+                print(np.expand_dims([10*float(alex.reservation_price-a)],axis=0).shape)
+                critic_0.learn(np.expand_dims(buyer_s0,axis=0), np.expand_dims(a,axis=0), np.expand_dims([10*float(alex.reservation_price-a)],axis=0), np.expand_dims(buyer_s0_,axis=0))
+            else:
+                print(np.expand_dims( [0],axis=0).shape)
+                #critic_0.learn(np.expand_dims(buyer_s0,axis=0), np.expand_dims(a,axis=0), np.expand_dims(10*float(alex.reservation_price-a),axis=0), np.expand_dims(buyer_s0_,axis=0))
+                critic_0.learn(np.expand_dims(buyer_s0,axis=0), np.expand_dims(a,axis=0), np.expand_dims( [0],axis=0), np.expand_dims(buyer_s0_,axis=0))
+            actor_0.learn(np.expand_dims(buyer_s0,axis=0))
+            #critic_0.learn(b_s, b_a, b_r, b_s_)
+            #actor_0.learn(b_s)
 
-            critic_0.learn(b_s, b_a, b_r, b_s_)
-            actor_0.learn(b_s)
-
-        if M_1.pointer > MEMORY_CAPACITY:
-            var *= .9995    # decay the action randomness
+        '''if M_1.pointer > MEMORY_CAPACITY:
+            var *= .9995   # decay the action randomness
             b_M = M_1.sample(BATCH_SIZE)
             b_s = b_M[:, :state_dim]
             b_a = b_M[:, state_dim: state_dim + action_dim]
@@ -412,14 +449,14 @@ for i in range(MAX_EPISODES):
             b_s_ = b_M[:, -state_dim:]
             #print('reward',b_r)
             critic_1.learn(b_s, b_a, b_r, b_s_)
-            actor_1.learn(b_s)
+            actor_1.learn(b_s)'''
 
         buyer_s0 = buyer_s0_
         seller_s1 = seller_s1_
 
         ep_reward_0 += r_0
         ep_reward_1 += r_1
-
+    
         print('Episode:', i, ' Reward_0: %i' % int(ep_reward_0), ' Reward_1: %i' % int(ep_reward_1), 'Explore: %.2f' % var,)
 
         # if done_:
@@ -431,12 +468,15 @@ for i in range(MAX_EPISODES):
         #     if ep_reward_0 > -300:
         #         RENDER = True
         #     # break
-        #
+     
+       #
+    #M_0.print_transition()
 print('Running time: ', time.time()-t1)
-plt.axis([0, 500, 0, 200])
+plt.axis([0, 5000, 0, 200/SCALE])
 #plt.plot(x, y, color="r", linestyle="-", linewidth=0.5)
-plt.scatter(time_list, price_list_0,color="r",label="buyer", s=1)
+plt.scatter(time_list, price_list_0,color="r",label="buyer_noise", s=1)
 plt.scatter(time_list, price_list_1,color="b",label="seller", s=1)
+plt.scatter(time_list, price_list_2,color="g",label="buyer_true", s=1)
 print(price_list_1)
 plt.legend(loc='upper left', bbox_to_anchor=(0.2, 0.95))
 plt.savefig("test.png", dpi=500)

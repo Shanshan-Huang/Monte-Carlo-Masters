@@ -55,6 +55,7 @@ class MarketEnvironment(Env):
         containing the reward per agent, a data structure containing boolean values expressing
         whether an agent reached a terminal state, and finally a dictionary object containing any extra info.
         """
+        #self.done=None
         rewards = self.matcher.match(
             current_actions=actions,
             offers=self.offers,

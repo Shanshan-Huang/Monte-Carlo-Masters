@@ -72,7 +72,11 @@ class MyRandomMatcher(Matcher):
         :return: the dictionary containing the the agent id as keys and the rewards as values
         """
         matched = set()
-        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+        #print(done)
+        if done:
+            for key in done.keys():
+                done[key] = False
+       
         # update offers
         for agent_id, offer in current_actions.items():
             if agent_id not in matched:
@@ -95,13 +99,15 @@ class MyRandomMatcher(Matcher):
             considered_seller = seller_offers.iloc[i, :]
             considered_buyer = buyer_offers.iloc[i, :]
 
-            print("buyer", considered_buyer['offer'])
-            print("seller", considered_seller['offer'])
+            #print("buyer", considered_buyer['offer'])
+            #print("seller", considered_seller['offer'])
 
             if considered_buyer['offer'] >= considered_seller['offer']:
                 # if seller price is lower or equal to buyer price
                 # matching is performed
-
+                #print("~~~~~~~~~~~~~~~~~~~~~~~~~~~innnnnnnn")
+                #print("buyer", considered_buyer['offer'])
+                #print("seller", considered_seller['offer'])
                 matched.add(considered_buyer['id'])
                 matched.add(considered_seller['id'])
 
