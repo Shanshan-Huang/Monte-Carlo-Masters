@@ -23,9 +23,9 @@ NUM_BUYER=1
 NUM_AGENT=2
 MAX_EPISODES = 10
 MAX_EP_STEPS = 500
-LR_A = 0.0005   # learning rate for actor
-LR_C = 0.0005     # learning rate for critic
-GAMMA = 0.9     # reward discount
+LR_A = 0.0003   # learning rate for actor
+LR_C = 0.0003     # learning rate for critic
+GAMMA = 0.0     # reward discount
 action_bound = 1
 SCALE=100
 REPLACEMENT = [
@@ -76,15 +76,15 @@ class Actor(object):
                                   kernel_initializer=init_w, bias_initializer=init_b, name='l1',
                                   trainable=trainable)
             with tf.variable_scope('a'):
-                actions = tf.layers.dense(net, self.a_dim, activation=tf.nn.relu, kernel_initializer=init_w,
+                actions = tf.layers.dense(net, self.a_dim, activation=tf.nn.tanh, kernel_initializer=init_w,
                                           bias_initializer=init_b, name='a', trainable=trainable)
-                actions=actions/SCALE
+                # actions=actions/SCALE
                 scaled_a = tf.multiply(actions, self.action_bound, name='scaled_a')  # Scale output to -action_bound to action_bound
         return scaled_a
 
     def learn(self, s):   # batch update
-        self.sess.run(self.train_op, feed_dict={S: s})
-
+        _, policy_grad = self.sess.run([self.train_op, self.policy_grads], feed_dict={S: s})
+        print("actor policy_grad", policy_grad)
         if self.replacement['name'] == 'soft':
             self.sess.run(self.soft_replace)
         else:
@@ -181,9 +181,9 @@ class Critic(object):
         return q
 
     def learn(self, s, a, r, s_):
-        _,los,q_, gradienttt=self.sess.run([self.train_op,self.loss,self.gamma * self.q_, self.gradients], feed_dict={S: s, self.a: a, R: r, S_: s_})
-        #print("loss",los)
-        print('TTTTTT gradient',gradienttt)
+        _,los,q, q_=self.sess.run([self.train_op,self.loss, self.q, self.q_], feed_dict={S: s, self.a: a, R: r, S_: s_})
+        print("loss", los, "r", r, "q", q, "q_",q_)
+        #print('TTTTTT gradient',gradienttt)
         if self.replacement['name'] == 'soft':
             self.sess.run(self.soft_replacement)
         else:
@@ -405,17 +405,20 @@ for i in range(MAX_EPISODES):
         for boolen in done.values():
             if not boolen:
                 done_=False
+        
+
+        reward_func = -20 * (float(a) - 45/SCALE) **2 + 2
+        print("Rewards", reward_func)
+
         if done_:
             #print("al",alex.reservation_price)
             #print("a",a)
-            print("float~~done",10*float(alex.reservation_price-a))
             #print(10*float(alex.reservation_price-a))
-            M_0.store_transition(buyer_s0, a, 10*float(alex.reservation_price-a) , buyer_s0_)
+            M_0.store_transition(buyer_s0, a, reward_func , buyer_s0_)
             #M_1.store_transition(seller_s1, nn, r_1 , seller_s1_)
         else:
             #print('Buyer:', a,'Seller:', nn, 'diff:', a-nn )
-            print("float~~fail", float(a-nn))
-            M_0.store_transition(buyer_s0, a,  float(a-nn), buyer_s0_)
+            M_0.store_transition(buyer_s0, a,  reward_func, buyer_s0_)
             #print(int(min(n-nick.reservation_price,-1)))
             #M_1.store_transition(s, n, 10*int(min(n-nick.reservation_price,-1)), s_)
             #M_1.store_transition(s, n, s.reshape((NUM_AGENT, -1))[1][-1]-nick.reservation_price, s_)
@@ -431,11 +434,11 @@ for i in range(MAX_EPISODES):
             print("state_new",b_s_)
             if done_:
                 print(np.expand_dims([10*float(alex.reservation_price-a)],axis=0).shape)
-                critic_0.learn(np.expand_dims(buyer_s0,axis=0), np.expand_dims(a,axis=0), np.expand_dims([10*float(alex.reservation_price-a)],axis=0), np.expand_dims(buyer_s0_,axis=0))
+                critic_0.learn(np.expand_dims(buyer_s0,axis=0), np.expand_dims(a,axis=0), np.expand_dims([reward_func],axis=0), np.expand_dims(buyer_s0_,axis=0))
             else:
                 print(np.expand_dims( [0],axis=0).shape)
                 #critic_0.learn(np.expand_dims(buyer_s0,axis=0), np.expand_dims(a,axis=0), np.expand_dims(10*float(alex.reservation_price-a),axis=0), np.expand_dims(buyer_s0_,axis=0))
-                critic_0.learn(np.expand_dims(buyer_s0,axis=0), np.expand_dims(a,axis=0), np.expand_dims( [0],axis=0), np.expand_dims(buyer_s0_,axis=0))
+                critic_0.learn(np.expand_dims(buyer_s0,axis=0), np.expand_dims(a,axis=0), np.expand_dims( [reward_func],axis=0), np.expand_dims(buyer_s0_,axis=0))
             actor_0.learn(np.expand_dims(buyer_s0,axis=0))
             #critic_0.learn(b_s, b_a, b_r, b_s_)
             #actor_0.learn(b_s)
