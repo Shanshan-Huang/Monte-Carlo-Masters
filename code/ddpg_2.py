@@ -24,8 +24,8 @@ NUM_AGENT=2
 MAX_EPISODES = 10
 MAX_EP_STEPS = 500
 LR_A = 0.0003   # learning rate for actor
-LR_C = 0.0003     # learning rate for critic
-GAMMA = 0.0     # reward discount
+LR_C = 0.0001    # learning rate for critic
+GAMMA = 0.5     # reward discount
 action_bound = 1
 SCALE=100
 REPLACEMENT = [
@@ -33,7 +33,7 @@ REPLACEMENT = [
     dict(name='hard', rep_iter_a=600, rep_iter_c=500)
 ][0]            # you can try different target replacement strategies
 MEMORY_CAPACITY = 100
-BATCH_SIZE = 1
+BATCH_SIZE = 32
 
 RENDER = False
 OUTPUT_GRAPH = True
@@ -70,13 +70,13 @@ class Actor(object):
 
     def _build_net(self, s, scope, trainable):
         with tf.variable_scope(scope):
-            init_w = tf.random_normal_initializer(0.0001, 0.05)
-            init_b = tf.constant_initializer(1)
-            net = tf.layers.dense(s, 100, activation=tf.nn.tanh,
+            init_w = tf.random_normal_initializer(0.001, 0.05)
+            init_b = tf.constant_initializer(0.001)
+            net = tf.layers.dense(s, 10, activation=tf.nn.elu,
                                   kernel_initializer=init_w, bias_initializer=init_b, name='l1',
                                   trainable=trainable)
             with tf.variable_scope('a'):
-                actions = tf.layers.dense(net, self.a_dim, activation=tf.nn.tanh, kernel_initializer=init_w,
+                actions = tf.layers.dense(net, self.a_dim, activation=tf.nn.elu, kernel_initializer=init_w,
                                           bias_initializer=init_b, name='a', trainable=trainable)
                 # actions=actions/SCALE
                 scaled_a = tf.multiply(actions, self.action_bound, name='scaled_a')  # Scale output to -action_bound to action_bound
@@ -84,7 +84,7 @@ class Actor(object):
 
     def learn(self, s):   # batch update
         _, policy_grad = self.sess.run([self.train_op, self.policy_grads], feed_dict={S: s})
-        print("actor policy_grad", policy_grad)
+        # print("actor policy_grad", policy_grad)
         if self.replacement['name'] == 'soft':
             self.sess.run(self.soft_replace)
         else:
@@ -127,9 +127,11 @@ class Critic(object):
         self.gamma = gamma
         self.replacement = replacement
         self.name_=name
+        self.raw_a=a
         with tf.variable_scope('Critic'):
             # Input (s, a), output q
-            self.a = tf.stop_gradient(a)    # stop critic update flows to actor
+            self.a = a
+            #self.a = tf.stop_gradient(a)    # stop critic update flows to actor
             self.q = self._build_net(S, self.a, 'eval_net', trainable=True)
 
             # Input (s_, a_), output q_ for q_target
@@ -153,7 +155,7 @@ class Critic(object):
             self.train_op = optimizer.apply_gradients(zip(gradients, variables))
 
         with tf.variable_scope('a_grad'):
-            self.a_grads = tf.gradients(self.q, a)[0]   # tensor of gradients of each sample (None, a_dim)
+            self.a_grads = tf.gradients(self.q, self.a)[0]   # tensor of gradients of each sample (None, a_dim)
             #print(self.q)
             #print(a)
             #print(self.a_grads)
@@ -170,19 +172,21 @@ class Critic(object):
             init_b = tf.constant_initializer(1)
 
             with tf.variable_scope('l1'):
-                n_l1 = 30
+                n_l1 = 10
                 w1_s = tf.get_variable('w1_s', [self.s_dim, n_l1], initializer=init_w, trainable=trainable)
                 w1_a = tf.get_variable('w1_a', [self.a_dim, n_l1], initializer=init_w, trainable=trainable)
                 b1 = tf.get_variable('b1', [1, n_l1], initializer=init_b, trainable=trainable)
-                net = tf.nn.relu(tf.matmul(s, w1_s) + tf.matmul(a, w1_a) + b1)
+                net = tf.nn.elu(tf.matmul(s, w1_s) + tf.matmul(a, w1_a) + b1)
 
             with tf.variable_scope('q'):
                 q = tf.layers.dense(net, 1, kernel_initializer=init_w, bias_initializer=init_b, trainable=trainable)   # Q(s,a)
         return q
 
     def learn(self, s, a, r, s_):
-        _,los,q, q_=self.sess.run([self.train_op,self.loss, self.q, self.q_], feed_dict={S: s, self.a: a, R: r, S_: s_})
-        print("loss", los, "r", r, "q", q, "q_",q_)
+        print(a.shape)
+        self.raw_a =tf.convert_to_tensor(a)
+        _,los,q, q_, a_gradd =self.sess.run([self.train_op,self.loss, self.q, self.q_, self.a_grads], feed_dict={S: s, self.a: a, R: r, S_: s_})
+        print("loss", los, "a_grad", a_gradd, "r", r, "q", q, "q_",q_)
         #print('TTTTTT gradient',gradienttt)
         if self.replacement['name'] == 'soft':
             self.sess.run(self.soft_replacement)
@@ -336,7 +340,8 @@ for i in range(MAX_EPISODES):
         price_list_2.append(a)
         #a=np.random.normal(a, var)
         #print(a)
-        a = np.clip(np.random.normal(a,var), 0, 1)    # add randomness to action selection for exploration
+        a = np.clip(np.random.normal(a,var), -1, 1) 
+       # a = np.clip(np.random.normal(a,var), 0, 1)    # add randomness to action selection for exploration
         print("aa",a)
         step_offers = {}
         step_offers['0']=float(a)
@@ -407,12 +412,12 @@ for i in range(MAX_EPISODES):
                 done_=False
         
 
-        reward_func = -20 * (float(a) - 45/SCALE) **2 + 2
+        reward_func = -8 * ((float(a) - 45/SCALE) **2) + 1
         print("Rewards", reward_func)
 
         if done_:
             #print("al",alex.reservation_price)
-            #print("a",a)
+            #print("a",a)ss
             #print(10*float(alex.reservation_price-a))
             M_0.store_transition(buyer_s0, a, reward_func , buyer_s0_)
             #M_1.store_transition(seller_s1, nn, r_1 , seller_s1_)
@@ -424,24 +429,24 @@ for i in range(MAX_EPISODES):
             #M_1.store_transition(s, n, s.reshape((NUM_AGENT, -1))[1][-1]-nick.reservation_price, s_)
             #M_1.store_transition(seller_s1, nn, -float(nn-a), seller_s1_)
         if M_0.pointer > MEMORY_CAPACITY:
-            var *= .99   # decay the action randomness
+            var *= .999   # decay the action randomness
             b_M = M_0.sample(BATCH_SIZE)
             b_s = b_M[:, :state_dim]
             b_a = b_M[:, state_dim: state_dim + action_dim]
             b_r = b_M[:, -state_dim - 1: -state_dim]
             b_s_ = b_M[:, -state_dim:]
-            print("state_old", b_s)
-            print("state_new",b_s_)
-            if done_:
-                print(np.expand_dims([10*float(alex.reservation_price-a)],axis=0).shape)
-                critic_0.learn(np.expand_dims(buyer_s0,axis=0), np.expand_dims(a,axis=0), np.expand_dims([reward_func],axis=0), np.expand_dims(buyer_s0_,axis=0))
-            else:
-                print(np.expand_dims( [0],axis=0).shape)
-                #critic_0.learn(np.expand_dims(buyer_s0,axis=0), np.expand_dims(a,axis=0), np.expand_dims(10*float(alex.reservation_price-a),axis=0), np.expand_dims(buyer_s0_,axis=0))
-                critic_0.learn(np.expand_dims(buyer_s0,axis=0), np.expand_dims(a,axis=0), np.expand_dims( [reward_func],axis=0), np.expand_dims(buyer_s0_,axis=0))
-            actor_0.learn(np.expand_dims(buyer_s0,axis=0))
-            #critic_0.learn(b_s, b_a, b_r, b_s_)
-            #actor_0.learn(b_s)
+            # print("state_old", b_s)
+            # print("state_new",b_s_)
+            # if done_:
+            #     print(np.expand_dims([10*float(alex.reservation_price-a)],axis=0).shape)
+            #     critic_0.learn(np.expand_dims(buyer_s0,axis=0), np.expand_dims(a,axis=0), np.expand_dims([reward_func],axis=0), np.expand_dims(buyer_s0_,axis=0))
+            # else:
+            #     print(np.expand_dims( [0],axis=0).shape)
+            #     #critic_0.learn(np.expand_dims(buyer_s0,axis=0), np.expand_dims(a,axis=0), np.expand_dims(10*float(alex.reservation_price-a),axis=0), np.expand_dims(buyer_s0_,axis=0))
+            #     critic_0.learn(np.expand_dims(buyer_s0,axis=0), np.expand_dims(a,axis=0), np.expand_dims( [reward_func],axis=0), np.expand_dims(buyer_s0_,axis=0))
+            # actor_0.learn(np.expand_dims(buyer_s0,axis=0))
+            critic_0.learn(b_s, b_a, b_r, b_s_)
+            actor_0.learn(b_s)
 
         '''if M_1.pointer > MEMORY_CAPACITY:
             var *= .9995   # decay the action randomness
@@ -475,7 +480,7 @@ for i in range(MAX_EPISODES):
        #
     #M_0.print_transition()
 print('Running time: ', time.time()-t1)
-plt.axis([0, 5000, 0, 200/SCALE])
+plt.axis([0, 5000, -1, 200/SCALE])
 #plt.plot(x, y, color="r", linestyle="-", linewidth=0.5)
 plt.scatter(time_list, price_list_0,color="r",label="buyer_noise", s=1)
 plt.scatter(time_list, price_list_1,color="b",label="seller", s=1)
