@@ -30,6 +30,6 @@ You can switch to different reward function by adjusting the `reward_mode`, set 
 
 The reward function is plotted below, there are in total four different rewards to choose from.
 <!-- ![alt text](reward_func.png =320x240) -->
-<img src="reward_func.png" width="240">
+<img src="reward_func.png" width="320">
 
 It will output the accumulated reward as well as a picture in format `mode_x_hislen_x_var_x.png` with corresponding configuration decided in input argument.
