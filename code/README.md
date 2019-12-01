@@ -13,8 +13,8 @@ scipy \
 time
 
 We recommend create a conda environment `ddpg` to install all necessary packages for this project, so that in the end you could easily remove everything by deleting the whole enviroment.
-```console
-# creare an virtual environment with python version 3.7 
+```shellscript
+# create an virtual environment with python version 3.7 
 conda create -n ddpg python=3.7
 # activate environment 
 conda activate ddpg
