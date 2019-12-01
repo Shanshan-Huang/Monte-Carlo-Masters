@@ -16,6 +16,7 @@ import scipy.stats as stats
 parser = argparse.ArgumentParser()
 parser.add_argument('--reward_mode', type=int, default=1, help='0:sparse reward; 1:discontinuous reward; 2:linear_peak; 3:squared function; 4:gaussian function; please see section 3.3 in the report for more details' )
 parser.add_argument('--his_len', type=int, default=1, help='history length' )
+parser.add_argument('--noise', type=int, default=0, help='noise' )
 ARGS = parser.parse_args()
 np.random.seed(1)
 tf.set_random_seed(1)
@@ -296,7 +297,8 @@ M_0 = Memory(MEMORY_CAPACITY, dims=2 * state_dim + action_dim + 1)
 if OUTPUT_GRAPH:
     tf.summary.FileWriter("logs/", sess.graph)
 
-var = 0/SCALE # control exploration
+var = ARGS.noise/SCALE
+#0/SCALE # control exploration
 price_list_0=[]
 price_list_1=[]
 price_list_2=[]
@@ -512,7 +514,7 @@ plt.scatter(range(len(price_list_1)), price_list_2,color="g",label="buyer_true",
 #print(price_list_0)
 #print(price_list_1)
 plt.legend(loc='upper left', bbox_to_anchor=(0.2, 0.95))
-plt.savefig("test1.png", dpi=500)
+plt.savefig("mode_%i_hislen_%i_var_%i.png"%(ARGS.reward_mode,ARGS.his_len,ARGS.noise) ,dpi=500)
 
 # plt.axis([0, 200, 0, 1.1])
 # plt.scatter(range(200), price_list_0[0:200],color="g",label="buyer_true", s=1)
