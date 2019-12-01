@@ -1,7 +1,7 @@
 # Code Folder 
 
 
-All necessary dependencies are written in file `requirements.txt`, for a quick glance, they include the following
+All necessary dependencies are written in file `requirements.txt`, for a quick glance, they include the following \
 python 3.7 \
 numpy \
 panda \
@@ -10,10 +10,10 @@ tensorflow \
 gym \
 tf (1.14.0) would probably see some warninig, but it's okay \
 scipy \
-time \
+time
 
 We recommend create a conda environment `ddpg` to install all necessary packages for this project, so that in the end you could easily remove everything by deleting the whole enviroment.
-```
+```python
 # creare an virtual environment with python version 3.7 
 conda create -n ddpg python=3.7
 # activate environment 
