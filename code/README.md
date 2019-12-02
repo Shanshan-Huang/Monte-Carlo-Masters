@@ -33,4 +33,5 @@ The reward function is plotted below, there are in total four different rewards 
 <img src="reward_func.png" width="320">
 
 It will output the accumulated reward as well as a picture in format `mode_x_hislen_x_var_x.png` with corresponding configuration decided in input argument. A sample image would be following.
+
 <img src="sample.png" width="320">
