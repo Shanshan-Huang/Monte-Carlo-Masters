@@ -14,7 +14,7 @@ import time
 import argparse
 import scipy.stats as stats
 parser = argparse.ArgumentParser()
-parser.add_argument('--reward_mode', type=int, default=1, help='0:sparse reward; 1:discontinuous reward; 2:linear_peak; 3:squared function; 4:gaussian function; please see section 3.3 in the report for more details' )
+parser.add_argument('--reward_mode', type=int, default=1, help='1:sparse reward; 2:discontinuous reward; 3:linear_peak; 4:squared function; 5:gaussian function; please see section 3.3 in the report for more details' )
 parser.add_argument('--his_len', type=int, default=1, help='history length' )
 parser.add_argument('--noise', type=int, default=0, help='noise' )
 ARGS = parser.parse_args()
