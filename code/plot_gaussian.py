@@ -37,7 +37,7 @@ for i in range(len(reward)):
     ax = plt.subplot(2,2, i+1)
     plt.axhline(0,linestyle='--')
     plt.plot(x, y)
-    ax.set_title("mode "+str(i))
+    ax.set_title("setting "+str(i+1))
 
 fig.savefig('reward_func.png')
 
