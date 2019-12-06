@@ -35,13 +35,13 @@ It was expected that the convergency will be in a similar way as described in th
 
 ## References 
 
-Timothy P. Lillicrap et al. “Continuous control with deep reinforcement learning”. In: (2015).
+[1]Timothy P. Lillicrap et al. “Continuous control with deep reinforcement learning”. In: (2015).
 arXiv:1509.02971 [cs.LG]
 
-DeSciL.Feedback effects in the experimental double auction with private information - online
+[2]DeSciL.Feedback effects in the experimental double auction with private information - online
 ressources.URL :https://osf.io/g84bt/ (Accessed: 06.12.19)
 
-Double auction wikpedia: URL: https://en.wikipedia.org/wiki/Double_auction (Accessed: 06.12.19)
+[3]Double auction wikpedia: URL: https://en.wikipedia.org/wiki/Double_auction (Accessed: 06.12.19)
 
 ## Research Methods
 
