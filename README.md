@@ -53,7 +53,7 @@ Timothy P. Lillicrap et al. “Continuous control with deep reinforcement learni
 arXiv:1509.02971 [cs.LG]
 
 DeSciL.Feedback effects in the experimental double auction with private information - online
-ressources.URL :https://osf.io/g84bt/ (Accessed)
+ressources.URL :https://osf.io/g84bt/ (Accessed: 06.12.19)
 
 Double auction wikpedia: URL: https://en.wikipedia.org/wiki/Double_auction (Accessed: 06.12.19)
 
@@ -74,3 +74,8 @@ The DDPG algorithm is:
 
 (mention datasets you are going to use)
 
+The first approach was to use the data set provide by the *DeSciL* but there were several inconsistencies in the data set. So, we did not use the dataset and made a self-learning agent.
+Some of the inconsistencies of the dataset:
+> * Players keep submitting bids or asks during rounds although they were already matched.
+> * Matches did not occur even there would be possible buyers and sellers pairs. 
+> * One side matches happened. Randomly some buyers/seller are matched, but no seller/buyer is matched.
