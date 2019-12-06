@@ -15,7 +15,6 @@ def linear_reward_peak(x):
  if(x < 0.45): return x
  else: return (0.9 -x)
 
-
 def quadratic(x):
     return -8 * ((x - 0.45) **2) + 0.4
 
@@ -29,15 +28,17 @@ reward = [linear_reward_zero, linear_reward_discont, linear_reward_peak, quadrat
 
 fig = plt.figure()
 plt.subplots_adjust(hspace = 0.3)
+
 for i in range(len(reward)):
     y = []
     for j in x:
         y.append(reward[i](j))
     print(i)
     ax = plt.subplot(2,2, i+1)
-    plt.axhline(0,linestyle='--')
-    plt.plot(x, y)
+    ax.axhline(0,linestyle='--')
+    ax.plot(x, y)
     ax.set_title("setting "+str(i+1))
+    plt.gca().set_ylim([-0.5,0.5])
 
 fig.savefig('reward_func.png')
 
