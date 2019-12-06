@@ -502,8 +502,10 @@ for i in range(MAX_EPISODES):
        #
     #M_0.print_transition()
 print('Running time: ', time.time()-t1)
-print("hislength",HIS_LEN)
-print("reward",ep_reward)
+print("hislength:",HIS_LEN)
+print("noise:",ARGS.noise)
+print("setting:",ARGS.reward_mode)
+print("reward:",ep_reward)
 plt.axis([0, MAX_EPISODES*MAX_EP_STEPS+HIS_LEN*MAX_EPISODES, -1, 200/SCALE])
 #plt.plot(x, y, color="r", linestyle="-", linewidth=0.5)
 plt.scatter(range(len(price_list_1)), price_list_0,color="r",label="buyer_noise", s=1)
