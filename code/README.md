@@ -1,6 +1,11 @@
 # Code Folder 
 
-
+First, download the project via git
+```bash
+git clone https://github.com/Shanshan-Huang/Monte-Carlo-Masters.git`
+# change working directory to the current folder 
+cd code
+```
 All necessary dependencies are written in file `requirements.txt`, for a quick glance, they include the following \
 python 3.7 \
 numpy \
