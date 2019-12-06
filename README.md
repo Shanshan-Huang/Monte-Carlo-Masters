@@ -1,5 +1,4 @@
 # Agent-Based Modeling and Social System Simulation 2019
-(text between brackets to be removed)
 
 > * Group Name: Monte-Carlo Masters
 > * Group participants names: 
@@ -15,7 +14,8 @@
 (Add real-world examples, if any)
 (Put the problem into a historical context, from what does it originate? Are there already some proposed solutions?)
 
-This Project aims to simulate a double auction model with Reinforcement learning (RL). Out of the view of economic analysis it is interesting to find a competitive equilibrium. There are already some experiments done with humans for the double auction model, as for example from the DeSciL (Decision Making Laboratory of the ETHZ). RL seems promising for the simulation, since the aim of RL is to  train software agents to decide between actions in an environment and maximize a coast function. 
+This Project aims to simulate a double auction model with Reinforcement learning (RL). Out of the view of economic analysis it is interesting to find a competitive equilibrium. There are already some experiments done with humans for the double auction model, as for example from the **DeSciL** (Decision Making Laboratory of the ETHZ). RL seems promising for the simulation, since the aim of RL is to  train software agents to decide between actions in an environment and maximize a coast function. 
+
 ## The Model
 
 (Define dependent and independent variables you want to study. Say how you want to measure them.) (Why is your model a good abtraction of the problem you want to study?) (Are you capturing all the relevant aspects of the problem?)
