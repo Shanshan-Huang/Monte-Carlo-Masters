@@ -2,7 +2,7 @@
 
 First, download the project via git, and switch to the `code/` folder
 ```bash
-git clone https://github.com/Shanshan-Huang/Monte-Carlo-Masters.git`
+git clone https://github.com/Shanshan-Huang/Monte-Carlo-Masters.git
 # change working directory to the current folder 
 cd code
 ```
