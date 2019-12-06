@@ -61,3 +61,8 @@ Some of the inconsistencies of the dataset:
 > * Players keep submitting bids or asks during rounds although they were already matched.
 > * Matches did not occur even there would be possible buyers and sellers pairs. 
 > * One side matches happened. Randomly some buyers/seller are matched, but no seller/buyer is matched.
+
+## Code Reproducibility
+
+Details on how to run the code is provided [here!](https://github.com/Shanshan-Huang/Monte-Carlo-Masters/tree/master/code)
+
