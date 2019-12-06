@@ -29,10 +29,12 @@ We trained an agent in a model with one buyer and one seller. The random match m
 (At the end of the project you want to find the answer to these questions)
 (Formulate a few, clear questions. Articulate them in sub-questions, from the more general to the more specific. )
 
-** Will the trained agent be better than a random acting agent?**
+**Will the trained agent be better than a random acting agent?**
+
 If this question is fulfilled, then the agent was able to learn something and made a progress.
 
-** Will the trained agent convert to an equilibrium?**
+**Will the trained agent convert to an equilibrium?**
+
 If this question is fulfilled, then the agent behaves in an optimal way. 
 
 
