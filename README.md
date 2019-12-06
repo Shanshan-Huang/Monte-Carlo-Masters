@@ -49,12 +49,20 @@ If this question is fulfilled, then the agent behaves in an optimal way.
 (Explain possible extension to the above models)
 (Code / Projects Reports of the previous year)
 
+Timothy P. Lillicrap et al. “Continuous control with deep reinforcement learning”. In: (2015).
+arXiv:1509.02971 [cs.LG]
+
+DeSciL.Feedback effects in the experimental double auction with private information - online
+ressources.URL :https://osf.io/g84bt/ (Accessed)
+
+Double auction wikpedia: URL: https://en.wikipedia.org/wiki/Double_auction (Accessed: 06.12.19)
 
 ## Research Methods
 
 (Cellular Automata, Agent-Based Model, Continuous Modeling...) (If you are not sure here: 1. Consult your colleagues, 2. ask the teachers, 3. remember that you can change it afterwards)
 
-The Deep Deterministic Policy Gradient Algorithm was chosen (DDPG).  DDPG is a Reinforcement Learning algorithm for continuous action space (bids and asks are continuous). The continuous action space is a problem for a big part of the other RL algorithms.  
+The Deep Deterministic Policy Gradient Algorithm was chosen (DDPG).  DDPG is a Reinforcement Learning algorithm for continuous action space (bids and asks are continuous). The continuous action space is a problem for a big part of the other RL algorithms.
+
 The DDPG algorithm is:
  > * off-policy
 > * model free
@@ -65,3 +73,4 @@ The DDPG algorithm is:
 ## Other
 
 (mention datasets you are going to use)
+
