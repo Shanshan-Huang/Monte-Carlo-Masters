@@ -20,7 +20,7 @@ This Project aims to simulate a double auction model with Reinforcement learning
 
 (Define dependent and independent variables you want to study. Say how you want to measure them.) (Why is your model a good abtraction of the problem you want to study?) (Are you capturing all the relevant aspects of the problem?)
 
-The double auction model consists of two types of players, buyers and sellers. Each have a price limit, also called valuation, respectively their budget or their production price. At each timestep each player can submit a bid (buyers) or an ask (sellers). The bids have to be smaller than the valuation of the buyers (budget limit) and the asks have to be bigger than the valuation of the sellers (production coast).  If a buyer and a seller matches (buyers bid is higher than sellers ask) and a deal happens. The deal price is determined according to a matching mechanism. The bids and asks of the player depend on the information the players have. The amount of information is defined in the information settings. 
+The double auction model consists of two types of players, buyers and sellers. Each have a price limit, also called valuation v, respectively their budget or their production price. At each timestep each player can submit a bid (buyers) or an ask (sellers). The bids have to be smaller than the valuation of the buyers (budget limit) and the asks have to be bigger than the valuation of the sellers (production coast).  If a buyer and a seller matches (buyers bid is higher than sellers ask) and a deal happens. The deal price is determined according to a matching mechanism. The bids and asks of the player depend on the information the players have. The amount of information is defined in the information settings. The aim of the players is to maximize the absolute value of the difference between their valuation v and deal price d.
 
 We trained an agent in a model with one buyer and one seller. The random match mechanism and the full information settings was used.
 
@@ -54,6 +54,13 @@ If this question is fulfilled, then the agent behaves in an optimal way.
 
 (Cellular Automata, Agent-Based Model, Continuous Modeling...) (If you are not sure here: 1. Consult your colleagues, 2. ask the teachers, 3. remember that you can change it afterwards)
 
+The Deep Deterministic Policy Gradient Algorithm was chosen (DDPG).  DDPG is a Reinforcement Learning algorithm for continuous action space (bids and asks are continuous). The continuous action space is a problem for a big part of the other RL algorithms.  
+The DDPG algorithm is:
+ > * off-policy
+> * model free
+> * for environments with continuous action space
+> * using an actor-critic approach
+> * using a replay buffer (as DQN)
 
 ## Other
 
