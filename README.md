@@ -3,9 +3,9 @@
 
 > * Group Name: Monte-Carlo Masters
 > * Group participants names: 
-      Guo Qifan
-      Huang Shanshan
-      Karbacher Till
+      Guo Qifan,
+      Huang Shanshan,
+      Karbacher Till,
       Vidovic Gauzelin
 > * Project Title: Reinforcement Learning for Markets
 
