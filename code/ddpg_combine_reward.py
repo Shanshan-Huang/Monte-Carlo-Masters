@@ -14,7 +14,7 @@ import time
 import argparse
 import scipy.stats as stats
 parser = argparse.ArgumentParser()
-parser.add_argument('--reward_mode', type=int, default=1, help='0:sparse reward; 1:discontinuous reward; 2:linear_peak; 3:squared function; 4:gaussian function; please see section 3.3 in the report for more details' )
+parser.add_argument('--reward_mode', type=int, default=1, help='1:sparse reward; 2:discontinuous reward; 3:linear_peak; 4:squared function; 5:gaussian function; please see section 4.2 in the report for more details' )
 parser.add_argument('--his_len', type=int, default=1, help='history length' )
 parser.add_argument('--noise', type=int, default=0, help='noise' )
 ARGS = parser.parse_args()
@@ -27,7 +27,7 @@ NUM_SELLER=1
 NUM_BUYER=1
 NUM_AGENT=2
 MAX_EPISODES = 1
-MAX_EP_STEPS = 5000
+MAX_EP_STEPS = 10000
 LR_A = 0.0003   # learning rate for actor
 LR_C = 0.0001    # learning rate for critic
 GAMMA = 0.8    # reward discount
@@ -329,7 +329,6 @@ for i in range(MAX_EPISODES):
     #### TO-DO: might change alex nick
     buyer_s0 = np.array(recent_history + [alex.reservation_price])
     seller_s1 = np.array(recent_history + [nick.reservation_price])
-
     #for i in range(NUM_SELLER):
         #for j in range(HIS_LEN):
 
@@ -428,8 +427,8 @@ for i in range(MAX_EPISODES):
             reward_suc=float(alex.reservation_price-a)
             reward_fail=float(alex.reservation_price+a-2*nn)
         elif ARGS.reward_mode==4:
-            reward_suc=-8 * ((float(a) - nn) **2) + 1
-            reward_fail=-8 * ((float(a) - nn) **2) + 1
+            reward_suc=-8 * ((float(a) - nn) **2) + 1-0.6
+            reward_fail=-8 * ((float(a) - nn) **2) + 1-0.6
         elif ARGS.reward_mode==5:
             reward_suc=0.1*stats.norm.pdf(float(a), nn, 0.1)
             reward_fail=0.1*stats.norm.pdf(float(a), nn, 0.1)
